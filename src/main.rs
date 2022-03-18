@@ -1,3 +1,4 @@
+use std::os::linux::raw::stat;
 use warp::Filter;
 use serde::{Deserialize, Serialize};
 
@@ -21,9 +22,17 @@ async fn main() {
             warp::reply::json(&fixed_settings)
         });
 
+    let static_content =
+        warp::get().and(warp::fs::dir("./static"));
+
+    let routes =
+             settings_get
+        .or(static_content);
+
     let port = 8080;
     println!("serving Duenger at :{}", port);
-    warp::serve(settings_get)
+
+    warp::serve(routes)
         .run(([0, 0, 0, 0], port))
         .await;
 }

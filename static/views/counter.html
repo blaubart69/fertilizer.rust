@@ -1,0 +1,25 @@
+<div class="col-xs-12">&nbsp;</div>
+<div class="col-xs-12">
+    <h1>Tagesz&auml;hler</h1>
+</div>
+<div class="col-xs-12">&nbsp;</div>
+<div class="col-sm-12">
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>D&uuml;nger</th>
+                    <th style="text-align: right;">Gewicht (kg)</th>
+                    <th style="text-align: right;">Strecke (m)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr data-ng-repeat="response in fertilizers">
+                    <td>{{response.fertilizer}}</td>
+                    <td style="text-align: right;">{{response.amountPerDay | number:1}}</td>
+                    <td style="text-align: right;">{{response.distancePerDay | number:1}}</td>
+                </tr>
+            </tbody>            
+        </table>
+    </div>
+</div>
