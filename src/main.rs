@@ -1,4 +1,5 @@
-use std::os::linux::raw::stat;
+use std::net::IpAddr;
+use std::str::FromStr;
 use warp::Filter;
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +33,8 @@ async fn main() {
     let port = 8080;
     println!("serving Duenger at :{}", port);
 
-    warp::serve(routes)
-        .run(([0, 0, 0, 0], port))
-        .await;
+    //should serve IPv4 AND IPv6
+    let ipv4and6 = IpAddr::from_str("::0").unwrap();
+
+    warp::serve(routes).run((ipv4and6, port)).await;
 }
