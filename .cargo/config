@@ -1,0 +1,8 @@
+[target.arm-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
+#linker = "/home/bee/build-rpi/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc"
+#linker = "ld.lld"
+#linker = "arm-linux-gnueabihf-ld"
+
+[target.arm-unknown-linux-musleabihf]
+linker = "rust-lld"
