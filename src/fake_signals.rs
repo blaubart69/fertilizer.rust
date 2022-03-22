@@ -1,23 +1,25 @@
+use std::sync::mpsc::Sender;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use crate::SignalKind;
 
-fn start<F>(mut on_signal : F)
-    where F: FnMut(SignalKind) + std::marker::Send + 'static {
+pub fn start(signals_tx : Sender<SignalKind>) -> JoinHandle<()> {
     thread::spawn(move || {
         const scaleRoller : usize = 20;
+
+        println!("starting FAKE signals");
         let mut i : usize = 1;
         loop {
             thread::sleep(Duration::from_millis(50));
-            on_signal(SignalKind::WHEEL);
-
+            let now = Instant::now();
+            signals_tx.send( SignalKind::WHEEL(now) );
             if i == scaleRoller {
-                on_signal(SignalKind::ROLLER);
+                signals_tx.send( SignalKind::ROLLER(now) );
                 i = 0;
             }
 
             i += 1;
         }
-    });
+    })
 }

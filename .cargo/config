@@ -6,3 +6,6 @@ linker = "arm-linux-gnueabihf-gcc"
 
 [target.arm-unknown-linux-musleabihf]
 linker = "rust-lld"
+
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"
