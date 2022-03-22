@@ -1,7 +1,18 @@
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::thread;
+use std::time::Duration;
 use warp::Filter;
 use serde::{Deserialize, Serialize};
+use std::sync::mpsc::{channel, Receiver, Sender};
+
+mod signal_processor;
+mod ring_buffer;
+mod fake_signals;
+mod gpio_signals;
+
+use signal_processor::{SignalKind, SignalProcessor};
+
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Duenger {
@@ -11,6 +22,10 @@ pub struct Duenger {
 
 #[tokio::main]
 async fn main() {
+
+
+
+    let processor = SignalProcessor::new(tx, Duration::from_secs(20) );
 
     let fixed_settings :Vec<Duenger> = vec![
         Duenger { name : "Kali".to_string(), kg : 5.1 },
