@@ -25,7 +25,12 @@ angular.module('fertilizer')
             $http.get('/calculate').then(handleResponse);
         };
         this.applyChanges = function () {
-            $http.post('/applyChanges', $scope.fertilizer).then(handleResponse);
+             $http({
+                method: "post",
+                url: '/applyChanges',
+                headers: { "Content-Type": "application/json; charset=utf-8" },
+                data: { fertilizerToSet : $scope.fertilizer }
+              }).then(handleResponse);
         };
         this.loadSettings = function () {
           $http.get('/settings').then(function (response) {

@@ -1,7 +1,7 @@
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
 use std::cell::Cell;
 use std::io::Write;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver};
 use std::thread;
@@ -19,57 +19,108 @@ pub enum SignalKind {
 struct CurrentValues {
     kg_ha : f32,
     sum_meters : f32,
-    sum_kg : f32
+    sum_kg : f32,
 }
 
+struct DuengerSettings {
+    name : String,
+    signals_per_kilo_duenger : f32
+}
+
+#[derive(Clone)]
 pub struct SignalProcessor {
     time_window     : Duration,
-    current         : CurrentValues,
+    current         : Arc<Mutex<CurrentValues>>,
+    settings        : Arc<Mutex<DuengerSettings>>,
     signals_wheel   : Arc<Mutex<RingBuffer>>,
     signals_roller  : Arc<Mutex<RingBuffer>>
 }
+
+//
+// 10000 m² devediert durch 15m Breite des Düngerers
+//
+const METERS_PER_HEKTAR : f32 = 10000f32 / 15f32;
+//
+// signals per meter of the Duengergerät "Amazone"
+//
 const wheel_meter : usize = 50;
 const wheel_signals : usize =  417;
 const SIGNALS_PER_METER : f32 = (wheel_signals as f32 ) / (wheel_meter as f32);
 
-fn calculate_current_kilo_per_ha(signals_wheel : usize, signals_roller : usize) -> Option<f32> {
+fn calculate_current_kilo_per_ha(signals_wheel : usize, signals_roller : usize, signals_per_kilo_duenger : &f32) -> Option<f32> {
 
-    let meters_in_timespan = signals_wheel as f32  / SIGNALS_PER_METER;
-    let kilos_in_timespan  = signals_roller as f32 / _currentSignalsPerKilo;
-
-    if meters_in_timespan > 0.0
-    {
-        let kilos_per_meter = kilos_in_timespan / meters_in_timespan;
-        Some(kilos_per_meter * METERS_PER_HEKTAR)
-    }
-    else
-    {
+    if signals_wheel == 0 {
         None
     }
+    else {
+        let meters_in_timespan = signals_wheel as f32  / SIGNALS_PER_METER;
+        let kilos_in_timespan  = signals_roller as f32 / signals_per_kilo_duenger;
+
+        let kilos_per_meter = kilos_in_timespan / meters_in_timespan;
+        let kilos_per_hektar = kilos_per_meter * METERS_PER_HEKTAR;
+
+        Some(kilos_per_hektar)
+    }
+}
+
+fn sum_meters_and_kilos(signals_wheel_last_calc : usize, signals_roller_last_calc : usize, signals_per_kilo_duenger : &f32) -> (f32,f32) {
+
+    let meter_since_last_calc  = signals_wheel_last_calc as f32  / SIGNALS_PER_METER;
+    let kilos_since_last_calc  = signals_roller_last_calc as f32 / signals_per_kilo_duenger;
+
+    ( meter_since_last_calc, kilos_since_last_calc )
 }
 
 impl SignalProcessor {
 
-    pub fn start_calculate(&mut self) -> JoinHandle<()> {
+    pub fn set_duenger(&self, name : &str, signals : usize, kilos : f32) {
+        let mut guard = self.settings.lock().unwrap();
+        guard.name = name.to_string();
+        guard.signals_per_kilo_duenger = signals as f32 / kilos;
+        println!("set_duenger: {} {} {}", kilos, guard.name, guard.signals_per_kilo_duenger);
+    }
+
+    pub fn start_calculate(&self) -> JoinHandle<()> {
 
         let buf_wheel = self.signals_wheel.clone();
         let buf_roller = self.signals_roller.clone();
+        let settings = self.settings.clone();
+        let time_window = self.time_window;
 
         thread::spawn(move || {
-            thread::sleep(Duration::from_secs(1));
 
-            let now = Instant::now();
+            let mut last_calc : Option<Instant>= None;
 
-            let signals_timewindow_wheel = buf_wheel.lock().unwrap().signals_within_duration(&now, &self.time_window);
-            let signals_timewindow_roller = buf_wheel.lock().unwrap().signals_within_duration(&now, &self.time_window);
-            let kilos_per_ha = calculate_current_kilo_per_ha(signals_timewindow_wheel, signals_timewindow_roller);
+            loop {
+                thread::sleep(Duration::from_secs(1));
 
+                let now = Instant::now();
+                //
+                // kilos per hekar
+                //
+                let kilos_per_ha = calculate_current_kilo_per_ha(
+                    buf_wheel.lock().unwrap().signals_within_duration(&now, &time_window),
+                    buf_roller.lock().unwrap().signals_within_duration(&now, &time_window),
+                    &settings.lock().unwrap().signals_per_kilo_duenger);
+                //
+                // sum meters, kilos
+                //
+                let diff = match last_calc {
+                    None => Duration::MAX,
+                    Some(last) => now - last
+                };
 
+                let (meters, kilos) = sum_meters_and_kilos(
+                    buf_wheel.lock().unwrap().signals_within_duration(&now, &diff),
+                    buf_roller.lock().unwrap().signals_within_duration(&now, &diff),
+                    &settings.lock().unwrap().signals_per_kilo_duenger);
 
+                last_calc = Some(now);
+            }
         })
     }
 
-    pub fn start_receive_signals(&mut self, signals_rx: Receiver<SignalKind>) -> JoinHandle<()> {
+    pub fn start_receive_signals(&self, signals_rx: Receiver<SignalKind>) -> JoinHandle<()> {
 
         let mut buf_wheel = self.signals_wheel.clone();
         let mut buf_roller = self.signals_roller.clone();
@@ -91,14 +142,19 @@ impl SignalProcessor {
             println!("SignalProcessor ended");
         })
     }
-    pub fn new(time_window : Duration) -> SignalProcessor {
+
+    pub fn new(time_window : Duration, name_duenger : &str, signals_per_kilo_duenger : &f32) -> SignalProcessor {
         SignalProcessor {
             time_window,
-            current: CurrentValues {
+            current: Arc::new(Mutex::new(CurrentValues {
                 kg_ha: 0.0,
                 sum_meters: 0.0,
                 sum_kg: 0.0
-            },
+            })),
+            settings : Arc::new(Mutex::new( DuengerSettings {
+                name : name_duenger.to_string(),
+                signals_per_kilo_duenger: *signals_per_kilo_duenger
+            })),
             signals_wheel: Arc::new(Mutex::new(RingBuffer::new(2048))),
             signals_roller: Arc::new(Mutex::new(RingBuffer::new(2048)))
         }
