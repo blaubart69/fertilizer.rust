@@ -30,7 +30,6 @@ async fn main() {
 
     let thread_fakesignals = fake_signals::start(signals_tx);
 
-    //let processor = Arc::new(SignalProcessor::new(Duration::from_secs(20), "Kali", &(30f32 / 4.1) ));
     let processor = SignalProcessor::new(Duration::from_secs(20), "Kali", &(30f32 / 4.1) );
     processor.start_receive_signals(signals_rx);
     processor.start_calculate();
@@ -46,7 +45,10 @@ async fn main() {
             warp::reply::json(&fixed_settings)
         });
 
-    let processor_filter = warp::any().map(move || processor.clone() );
+    let processor_filter = {
+        let processor_clone = processor.clone();
+        warp::any().map(move || processor_clone.clone() )
+    };
     let apply_settings_post =
         warp::post()
             .and( warp::path("applyChanges") )
@@ -63,6 +65,7 @@ async fn main() {
                 }
             });
 
+    processor.set_duenger("bumsti", 30, 4.5);
 
     let static_content =
         warp::get().and(warp::fs::dir("./static"));
