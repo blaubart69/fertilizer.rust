@@ -6,6 +6,7 @@ use warp::reply::Json;
 
 use crate::{SignalProcessor};
 use crate::signal_processor::Duenger;
+use crate::web_handler;
 
 pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalProcessor) {
 
@@ -15,17 +16,11 @@ pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalP
     };
 
     let settings_get =
-        warp::path("settings")
-            .and( processor_filter.clone() )
-            .map(move |proc : SignalProcessor| {
-
-                let fixed_settings :Vec<Duenger> = vec![
-                    Duenger { name : "Kali".to_string(), kg : 5.1 },
-                    Duenger { name : "Lulu".to_string(), kg : 4 as f32 },
-                ];
-
-                warp::reply::json(&fixed_settings)
-            });
+        warp::get()
+            .and(warp::path("settings") )
+            .and( warp::path::end() )
+            .and(processor_filter.clone() )
+            .and_then( web_handler::get_settings );
 
     let apply_settings_post =
         warp::post()
@@ -33,15 +28,9 @@ pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalP
             .and( warp::path::end() )
             .and( warp::body::json() )
             .and( processor_filter.clone() )
-            .map( |simple_map: HashMap<String, String>, proc : SignalProcessor | {
-                match simple_map.get("fertilizerToSet") {
-                    None => StatusCode::BAD_REQUEST,
-                    Some(duengername) => {
-                        proc.set_duenger(duengername.as_str(), 30,5.15);
-                        StatusCode::OK
-                    }
-                }
-            });
+            .and_then( web_handler::apply_changes );
+            //.map( |simple_map: HashMap<String, String>, proc : SignalProcessor | {
+            //});
 
     let static_content =
         warp::get().and(warp::fs::dir("./static"));
@@ -51,5 +40,5 @@ pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalP
             .or(static_content)
             .or(apply_settings_post);
 
-    warp::serve(routes).run(listen_socket_addr );
+    warp::serve(routes).run(listen_socket_addr ).await;
 }

@@ -40,6 +40,8 @@ pub struct SignalProcessor {
     signals_roller  : Arc<Mutex<RingBuffer>>
 }
 
+pub const FILENAME_DUENGER_JSON : &'static str = "./conf/duenger.json";
+
 //
 // 10000 m² devediert durch 15m Breite des Düngerers
 //
@@ -47,9 +49,8 @@ const METERS_PER_HEKTAR : f32 = 10000f32 / 15f32;
 //
 // signals per meter of the Duengergerät "Amazone"
 //
-const wheel_meter : usize = 50;
-const wheel_signals : usize =  417;
-const SIGNALS_PER_METER : f32 = (wheel_signals as f32 ) / (wheel_meter as f32);
+const WHEEL_SIGNALS_FOR_50_METER: usize =  417;
+const SIGNALS_PER_METER : f32 = (WHEEL_SIGNALS_FOR_50_METER as f32 ) / (50 as f32);
 
 fn calculate_current_kilo_per_ha(signals_wheel : usize, signals_roller : usize, signals_per_kilo_duenger : &f32) -> Option<f32> {
 
@@ -126,8 +127,8 @@ impl SignalProcessor {
 
     pub fn start_receive_signals(&self, signals_rx: Receiver<SignalKind>) -> JoinHandle<()> {
 
-        let mut buf_wheel = self.signals_wheel.clone();
-        let mut buf_roller = self.signals_roller.clone();
+        let buf_wheel = self.signals_wheel.clone();
+        let buf_roller = self.signals_roller.clone();
 
         thread::spawn( move || {
             for signal in signals_rx.iter() {
@@ -141,7 +142,7 @@ impl SignalProcessor {
                         print!(" R ");
                     }
                 }
-                std::io::stdout().flush();
+                std::io::stdout().flush().unwrap();
             }
             println!("SignalProcessor ended");
         })

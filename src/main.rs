@@ -5,6 +5,8 @@ use std::time::Duration;
 //use std::sync::mpsc::{channel, Receiver, Sender};
 
 mod web_routes;
+mod web_handler;
+
 mod signal_processor;
 mod ring_buffer;
 mod fake_signals;
@@ -12,8 +14,6 @@ mod fake_signals;
 mod gpio_signals;
 
 use signal_processor::{SignalKind, SignalProcessor};
-
-
 
 #[tokio::main]
 async fn main() {
@@ -28,8 +28,7 @@ async fn main() {
 
 
     let port = 8080;
-    //should serve IPv4 AND IPv6
-    let ipv4and6 = IpAddr::from_str("::0").unwrap();
+    let ipv4and6 = IpAddr::from_str("::0").unwrap(); //should serve IPv4 AND IPv6
     println!("serving Duenger at :{}", port);
     web_routes::run((ipv4and6, port) , &processor).await;
 }
