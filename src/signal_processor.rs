@@ -1,12 +1,10 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::cell::Cell;
 use std::io::Write;
-use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
+use serde::{Deserialize, Serialize};
 
 use crate::ring_buffer::RingBuffer;
 use crate::SignalKind::{ROLLER, WHEEL};
@@ -20,6 +18,12 @@ struct CurrentValues {
     kg_ha : f32,
     sum_meters : f32,
     sum_kg : f32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Duenger {
+    pub name: String,
+    pub kg: f32
 }
 
 struct DuengerSettings {
