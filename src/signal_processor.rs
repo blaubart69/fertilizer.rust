@@ -51,6 +51,10 @@ const METERS_PER_HEKTAR : f32 = 10000f32 / 15f32;
 //
 const WHEEL_SIGNALS_FOR_50_METER: usize =  417;
 const SIGNALS_PER_METER : f32 = (WHEEL_SIGNALS_FOR_50_METER as f32 ) / (50 as f32);
+//
+// Konstante für's "Abdrehen" - 30 Signale vom Zahnrad
+//
+const ROLLER_SIGNALS_ONE_ROTATION : u32 = 30;
 
 fn calculate_current_kilo_per_ha(signals_wheel : usize, signals_roller : usize, signals_per_kilo_duenger : &f32) -> Option<f32> {
 
@@ -78,10 +82,12 @@ fn sum_meters_and_kilos(signals_wheel_last_calc : usize, signals_roller_last_cal
 
 impl SignalProcessor {
 
-    pub fn set_duenger(&self, name : &str, signals : usize, kilos : f32) {
+
+
+    pub fn set_duenger(&self, name : &str, kilos : f32) {
         let mut guard = self.settings.lock().unwrap();
         guard.name = name.to_string();
-        guard.signals_per_kilo_duenger = signals as f32 / kilos;
+        guard.signals_per_kilo_duenger = self::ROLLER_SIGNALS_ONE_ROTATION as f32 / kilos;
         println!("set_duenger: {} {} {}", kilos, guard.name, guard.signals_per_kilo_duenger);
     }
 
@@ -135,14 +141,14 @@ impl SignalProcessor {
                 match signal {
                     WHEEL(instant) => {
                         buf_wheel.lock().unwrap().push(instant);
-                        print!("W");
+                        //print!("W");
                     },
                     ROLLER(instant) => {
                         buf_roller.lock().unwrap( ).push(instant);
-                        print!(" R ");
+                        //print!(" R ");
                     }
                 }
-                std::io::stdout().flush().unwrap();
+                //std::io::stdout().flush().unwrap();
             }
             println!("SignalProcessor ended");
         })

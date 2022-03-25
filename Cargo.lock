@@ -117,6 +117,7 @@ dependencies = [
 name = "fertilizer"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "rppal",
  "serde",
  "tokio",

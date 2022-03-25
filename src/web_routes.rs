@@ -15,30 +15,37 @@ pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalP
         warp::any().map(move || processor_clone.clone() )
     };
 
-    let settings_get =
+    let get_settings =
         warp::get()
             .and(warp::path("settings") )
             .and( warp::path::end() )
             .and(processor_filter.clone() )
-            .and_then( web_handler::get_settings );
+            .and_then( web_handler::load_settings );
 
-    let apply_settings_post =
+    let post_settings =
+        warp::post()
+            .and(warp::path("settings") )
+            .and( warp::path::end() )
+            .and( warp::body::bytes() )
+            .and(processor_filter.clone() )
+            .and_then( web_handler::save_settings );
+
+    let apply_settings =
         warp::post()
             .and( warp::path("applyChanges") )
             .and( warp::path::end() )
-            .and( warp::body::json() )
+            .and(warp::body::json() )
             .and( processor_filter.clone() )
             .and_then( web_handler::apply_changes );
-            //.map( |simple_map: HashMap<String, String>, proc : SignalProcessor | {
-            //});
 
     let static_content =
         warp::get().and(warp::fs::dir("./static"));
 
     let routes =
-        settings_get
-            .or(static_content)
-            .or(apply_settings_post);
+                get_settings
+            .or(post_settings)
+            .or(apply_settings)
+            .or(static_content);
 
-    warp::serve(routes).run(listen_socket_addr ).await;
+        warp::serve(routes).run(listen_socket_addr ).await;
 }

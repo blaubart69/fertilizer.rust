@@ -1,5 +1,5 @@
 angular.module('fertilizer')
-    .controller('FertilizerController', function ($scope, $http, $interval) {
+    .controller('FertilizerController', function ($scope, $http, $interval, settingsService) {
         // initialize the content type of post request with text/plaien
         // TO AVOID triggering the pre-flight OPTIONS request
         $http.defaults.headers.post["Content-Type"] = "text/plain";
@@ -25,19 +25,15 @@ angular.module('fertilizer')
             $http.get('/calculate').then(handleResponse);
         };
         this.applyChanges = function () {
+
+            var kgForFertilizer = ($scope.settings.filter(f => f.name === $scope.fertilizer)[0]).kg;
+
              $http({
                 method: "post",
                 url: '/applyChanges',
                 headers: { "Content-Type": "application/json; charset=utf-8" },
-                data: { fertilizerToSet : $scope.fertilizer }
+                data: { name : $scope.fertilizer, kg : kgForFertilizer }
               }).then(handleResponse);
-        };
-        this.loadSettings = function () {
-          $http.get('/settings').then(function (response) {
-            angular.forEach(response.data, function(item) {
-              $scope.fertilizers.push(item.name);
-            });
-          });
         };
 
         var stop;
@@ -55,8 +51,16 @@ angular.module('fertilizer')
         // Make sure that the interval is destroyed too
         $scope.$on('$destroy', this.stopCalculation);
         this.startCalculation();
-        this.loadSettings();
-        console.log("initialize fertilizer controller");
+        //this.loadSettings();
+
+        settingsService.getSettings().then( (result) => {
+            angular.forEach(result, function(item) {
+                console.log("filling in fertilizer name: " + item.name);
+                $scope.fertilizers.push(item.name);
+            });
+        });
+
+        console.log("initialized fertilizer controller");
     })
     .controller('CounterController', function ($scope, $http) {
         $scope.fertilizers = [
@@ -94,7 +98,7 @@ angular.module('fertilizer')
         });
         console.log("initialize reset controller");
     })
-    .controller('SettingsController', function ($scope, $http) {
+    .controller('SettingsController', function ($scope, $http, settingsService) {
       $scope.settings = [];
       $scope.setting = {name: '', kg: 0};
 
@@ -114,10 +118,42 @@ angular.module('fertilizer')
         });
       };
       this.saveSettings = function () {
+        /*
         $http.post('/settings', $scope.settings).then(function (response) {
           console.log(response);
         });
+        */
+        $http({
+            method: "post",
+            url: '/settings',
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+            data: $scope.settings
+        }).then(handleResponse);
+
+
+        settingsService.loadSettings();
+        console.log('SettingsController: settingsService.loadSettings()');
       }
       this.loadSettings();
       console.log("initialize settings controller");
+    })
+    .service('settingsService', function($http,$q) {
+        console.log("settingsService.ctor");
+
+        var deferred;
+
+        this.loadSettings = function () {
+            deferred = $q.defer();
+            $http.get('/settings').then(function (response) {
+                deferred.resolve(response.data)
+                console.log("settingsService: settings loaded");
+            });
+        };
+
+        this.getSettings = function() {
+            return deferred.promise;
+        };
+
+        this.loadSettings();
+        console.log("settingsService.ctor.loadSettings()");
     });
