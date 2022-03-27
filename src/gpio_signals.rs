@@ -1,12 +1,12 @@
 use std::error::Error;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use rppal::gpio::{Gpio, InputPin, Level, Trigger};
-use SignalKind::WHEEL;
-use crate::SignalKind;
 
-struct GpioSignals{
+use crate::ring_buffer::RingBuffer;
+
+pub struct GpioSignals{
     gpio : Gpio,
     pin_wheel : InputPin,
     pin_roller : InputPin,
@@ -25,12 +25,9 @@ impl GpioSignals {
         })
     }
 
-    pub fn start<F>(&mut self, on_signal_wheel : F, on_signal_roller : F) -> Result<(), Box<dyn Error>>
-        where F : FnMut(Level) + Send + 'static {
-
-        self.pin_wheel.set_async_interrupt(Trigger::FallingEdge,on_signal_wheel)?;
-        self.pin_roller.set_async_interrupt(Trigger::FallingEdge,on_signal_roller )?;
-
+    pub fn start(&mut self, signals_wheel : Arc<Mutex<RingBuffer>>, signals_roller  : Arc<Mutex<RingBuffer>>) -> Result<(), Box<dyn Error>> {
+        self.pin_wheel .set_async_interrupt(Trigger::FallingEdge,move |_level| { signals_wheel .lock().unwrap().push(Instant::now()) })?;
+        self.pin_roller.set_async_interrupt(Trigger::FallingEdge,move |_level| { signals_roller.lock().unwrap().push(Instant::now()) })?;
         Ok(())
     }
 }

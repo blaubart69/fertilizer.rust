@@ -1,25 +1,24 @@
 use std::collections::HashMap;
 use std::net::{SocketAddr};
+use std::sync::{Arc, Mutex};
 use warp::{Filter};
 use warp::http::StatusCode;
 use warp::reply::Json;
 
-use crate::{SignalProcessor};
 use crate::signal_processor::Duenger;
-use crate::web_handler;
+use crate::{CurrentSettings, CurrentValues, web_handler};
 
-pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalProcessor) {
+pub async fn run(listen_socket_addr: impl Into<SocketAddr>, currentSettings : Arc<Mutex<CurrentSettings>>, currentValues : Arc<Mutex<CurrentValues>>) {
 
-    let processor_filter = {
-        let processor_clone = processor.clone();
-        warp::any().map(move || processor_clone.clone() )
+    let settings_filter = {
+        let settings_clone = currentSettings.clone();
+        warp::any().map(move || settings_clone.clone() )
     };
 
     let get_settings =
         warp::get()
             .and(warp::path("settings") )
             .and( warp::path::end() )
-            .and(processor_filter.clone() )
             .and_then( web_handler::load_settings );
 
     let post_settings =
@@ -27,7 +26,6 @@ pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalP
             .and(warp::path("settings") )
             .and( warp::path::end() )
             .and( warp::body::bytes() )
-            .and(processor_filter.clone() )
             .and_then( web_handler::save_settings );
 
     let apply_settings =
@@ -35,7 +33,7 @@ pub async fn run(listen_socket_addr: impl Into<SocketAddr>, processor : &SignalP
             .and( warp::path("applyChanges") )
             .and( warp::path::end() )
             .and(warp::body::json() )
-            .and( processor_filter.clone() )
+            .and( settings_filter.clone() )
             .and_then( web_handler::apply_changes );
 
     let static_content =
