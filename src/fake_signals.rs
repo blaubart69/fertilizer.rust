@@ -1,8 +1,5 @@
-use std::ops::Deref;
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::Sender;
 use std::thread;
-use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use crate::ring_buffer::RingBuffer;

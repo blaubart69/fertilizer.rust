@@ -1,15 +1,10 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs;
-use std::net::{SocketAddr};
 use std::sync::{Arc, Mutex};
-use warp::{Filter, Reply, Rejection};
-use warp::http::{Response, StatusCode};
-use warp::reply::Json;
-use bytes::{Bytes};
-use crate::CurrentSettings;
-
-use crate::signal_processor::Duenger;
+use warp::{Reply};
+use warp::http::{StatusCode};
+use serde::Serialize;
+use crate::{CurrentSettings, CurrentValues};
 
 pub async fn apply_changes(duenger : HashMap<String, String>, settings : Arc<Mutex<CurrentSettings>> ) -> Result<impl Reply, std::convert::Infallible> {
 
@@ -23,18 +18,18 @@ pub async fn apply_changes(duenger : HashMap<String, String>, settings : Arc<Mut
         Ok(warp::reply::with_status("field missing: kg", StatusCode::BAD_REQUEST))
     }
     else {
-        let duengerKg = match kg.unwrap().parse::<f32>() {
-            Err(e) => return Ok(warp::reply::with_status("cannot parse kg to float", StatusCode::BAD_REQUEST)),
+        let duenger_kg = match kg.unwrap().parse::<f32>() {
+            Err(_e) => return Ok(warp::reply::with_status("cannot parse kg to float", StatusCode::BAD_REQUEST)),
             Ok(kg_in_f32) => kg_in_f32
         };
-        settings.lock().unwrap().set_duenger(name.unwrap().as_str(), duengerKg);
+        settings.lock().unwrap().set_duenger(name.unwrap().as_str(), duenger_kg);
         Ok(warp::reply::with_status("ok", StatusCode::OK))
     }
 }
 
 pub async fn load_settings() -> Result<warp::reply::Response, std::convert::Infallible> {
     match fs::read_to_string(crate::signal_processor::FILENAME_DUENGER_JSON ) {
-        Err(e) =>
+        Err(_e) =>
             Ok(warp::http::Response::builder()
                 .status(500)
                 .body("duenger.json not found")
@@ -57,3 +52,27 @@ pub async fn save_settings(duenger : bytes::Bytes) -> Result<impl Reply, std::co
         Ok(()) => Ok(warp::reply::with_status("ok".to_string(), StatusCode::OK))
     }
 }
+
+#[derive(Serialize)]
+struct CurrentJson {
+    name : String,
+    kg_per_ha : f32,
+    sum_kg : f32,
+    sum_meter : f32
+}
+
+pub async fn current(settings : Arc<Mutex<CurrentSettings>>, values : CurrentValues) -> Result<impl Reply, std::convert::Infallible> {
+    println!("current");
+
+    let v = values.get_current(&settings.lock().unwrap().signals_per_kilo_duenger);
+
+    let current_reply = CurrentJson {
+      name : settings.lock().unwrap().name.to_string(),
+        kg_per_ha : v.kg_ha,
+        sum_kg : v.sum_kilos,
+        sum_meter : v.sum_meters
+    };
+
+    Ok(warp::reply::json(&current_reply))
+}
+

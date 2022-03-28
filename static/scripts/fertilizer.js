@@ -22,7 +22,7 @@ angular.module('fertilizer')
             }
         };
         this.calculate = function () {
-            $http.get('/calculate').then(handleResponse);
+            $http.get('/current').then(handleResponse);
         };
         this.applyChanges = function () {
 
@@ -93,7 +93,7 @@ angular.module('fertilizer')
                 console.log(response);
             });
         };
-        $http.get('/calculate').then(function(response) {
+        $http.get('/current').then(function(response) {
             $scope.response = response.data;
         });
         console.log("initialize reset controller");
